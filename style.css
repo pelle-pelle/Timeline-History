@@ -1,0 +1,186 @@
+/* --- 基本レイアウト --- */
+body {
+  font-family:
+    "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+    sans-serif;
+  background: #f0f2f5;
+  margin: 0;
+  padding: 20px;
+  color: #333;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* --- コントロールエリア --- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.control-group h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #666;
+}
+#category-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- タイムライン構造 --- */
+#timeline-axis {
+  height: 40px;
+  background: white;
+  border-bottom: 2px solid #3498db;
+  position: relative;
+  overflow: hidden;
+}
+#timeline-container {
+  position: relative;
+  height: 500px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+#era-background,
+#timeline-bars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  height: 100%;
+}
+
+/* --- タイムライン要素 --- */
+.year-label {
+  position: absolute;
+  top: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  border-left: 1px solid #3498db;
+  padding-left: 4px;
+}
+.era-region {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  z-index: 1;
+}
+.era-region span {
+  font-size: 16px;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.2);
+  writing-mode: vertical-rl;
+  letter-spacing: 0.1em;
+}
+.today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ff4757;
+  z-index: 5;
+}
+.today-label {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: #ff4757;
+  color: white;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+.person-bar {
+  position: absolute;
+  height: 30px;
+  line-height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  z-index: 10;
+}
+
+/* --- フォーム・UI --- */
+.form-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+.form-field label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-primary {
+  background: #3498db;
+  color: white;
+}
+.btn-secondary {
+  background: #95a5a6;
+  color: white;
+}
+.btn-danger {
+  background: #e74c3c;
+  color: white;
+}
+.hidden {
+  display: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  display: none;
+  z-index: 1000;
+}
