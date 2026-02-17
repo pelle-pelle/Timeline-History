@@ -3,37 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>歴史人物タイムライン Pro</title>
+    <title>歴史人物タイムライン Pro - Integrated</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
       <header>
         <h1>📜 歴史人物タイムライン</h1>
-        <p>紀元前から現代までを可視化</p>
+        <p>紀元前から現代までを可視化・整理する</p>
       </header>
 
       <div class="controls">
-        <div class="control-group">
-          <h3>🔍 検索</h3>
-          <input type="text" id="search-input" placeholder="人物名で検索..." />
+        <div class="control-row">
+          <div class="control-group search-section">
+            <h3>🔍 検索</h3>
+            <input
+              type="text"
+              id="search-input"
+              placeholder="人物名で検索..."
+            />
+          </div>
+          <div class="control-group zoom-section">
+            <h3>🔎 ズーム</h3>
+            <div class="zoom-control">
+              <input
+                type="range"
+                id="zoom-slider"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value="1"
+              />
+              <span id="zoom-value">1.0×</span>
+              <button id="jump-today" class="btn btn-secondary btn-sm">
+                📍 今日へ
+              </button>
+            </div>
+          </div>
         </div>
+
         <div class="control-group">
-          <h3>🏷️ カテゴリ</h3>
+          <h3>🏷️ カテゴリ表示切替</h3>
           <div id="category-buttons"></div>
         </div>
+
         <div class="control-group">
-          <h3>🔎 ズーム</h3>
-          <div class="zoom-control">
-            <input
-              type="range"
-              id="zoom-slider"
-              min="0.1"
-              max="5"
-              step="0.1"
-              value="1"
-            />
-            <span id="zoom-value">1.0×</span>
+          <h3>🌈 タグで絞り込み（枠線色）</h3>
+          <div class="tag-header">
+            <div id="tag-legend-filter"></div>
+            <button
+              type="button"
+              id="open-tag-settings"
+              class="btn btn-secondary btn-sm"
+            >
+              ⚙️ タグ名設定
+            </button>
           </div>
         </div>
       </div>
@@ -58,7 +82,7 @@
               <input type="number" id="person-birth" required />
             </div>
             <div class="form-field">
-              <label>没年 (存命なら空欄または0)</label>
+              <label>没年 (空欄は存命扱い)</label>
               <input type="number" id="person-death" placeholder="例: 1582" />
             </div>
             <div class="form-field">
@@ -66,10 +90,17 @@
               <select id="person-category"></select>
             </div>
           </div>
+
+          <div class="form-field">
+            <label>カラータグ（枠線の色）</label>
+            <div id="tag-color-selector" class="tag-selector"></div>
+          </div>
+
           <div class="form-field">
             <label>メモ</label>
-            <textarea id="person-memo"></textarea>
+            <textarea id="person-memo" rows="2"></textarea>
           </div>
+
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">💾 保存</button>
             <button
@@ -90,6 +121,26 @@
         </form>
       </div>
     </div>
+
+    <div id="tag-settings-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2>🏷️ カラータグの意味を設定</h2>
+        <div id="tag-names-container"></div>
+        <div class="modal-actions">
+          <button type="button" id="save-tag-settings" class="btn btn-primary">
+            💾 保存
+          </button>
+          <button
+            type="button"
+            id="close-tag-settings"
+            class="btn btn-secondary"
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="tooltip" class="tooltip"></div>
     <script src="script.js"></script>
   </body>

@@ -1,8 +1,7 @@
-// --- 設定とデータ ---
+// --- 設定データ ---
 const config = {
   pxPerYearBase: 4,
-  rowHeight: 42,
-  barMinWidth: 150,
+  rowHeight: 40,
   categoryColors: {
     政治: "#1E88E5",
     "武将・軍事": "#43A047",
@@ -12,6 +11,20 @@ const config = {
     天皇: "#D4AF37",
     その他: "#757575",
   },
+  tagColors: [
+    "#e91e63",
+    "#9c27b0",
+    "#673ab7",
+    "#3f51b5",
+    "#2196f3",
+    "#00bcd4",
+    "#009688",
+    "#4caf50",
+    "#ffeb3b",
+    "#ffc107",
+    "#ff9800",
+    "#795548",
+  ],
   eras: [
     { name: "飛鳥", start: 592, end: 710, color: "rgba(233, 236, 239, 0.4)" },
     { name: "奈良", start: 710, end: 794, color: "rgba(216, 191, 216, 0.3)" },
@@ -58,169 +71,188 @@ const config = {
   ],
 };
 
+// --- 状態管理 ---
 let people = JSON.parse(localStorage.getItem("peopleData")) || [
   {
-    name: "神武天皇",
-    birth: -711,
-    death: -585,
-    category: "天皇",
-    memo: "初代天皇",
+    name: "聖徳太子",
+    birth: 574,
+    death: 622,
+    category: "政治",
+    tagColor: "#e91e63",
+    memo: "冠位十二階",
   },
   {
     name: "織田信長",
     birth: 1534,
     death: 1582,
     category: "武将・軍事",
-    memo: "本能寺の変",
+    tagColor: "#ff9800",
+    memo: "天下布武",
   },
 ];
-
+let tagNames = JSON.parse(localStorage.getItem("tagNamesData")) || {};
 let state = {
   editIndex: null,
   zoomScale: 1,
   searchQuery: "",
   categoryVisibility: {},
+  tagVisibility: { none: true },
+  selectedTagColor: "",
 };
 
-// --- ユーティリティ ---
-const formatYear = (year, isDeath = false) => {
-  if (isDeath && (!year || year === 0)) return "現在";
-  return year < 0 ? `BC ${Math.abs(year)}` : `${year}年`;
-};
-
-const getEffectiveDeath = (p) =>
-  p.death === 0 || !p.death ? new Date().getFullYear() : p.death;
+// ユーティリティ
+const formatYear = (y, isDeath = false) =>
+  isDeath && !y ? "現在" : y < 0 ? `BC ${Math.abs(y)}` : `${y}年`;
+const getDeath = (p) => p.death || new Date().getFullYear();
 
 // --- 描画ロジック ---
 function renderTimeline() {
-  const barsContainer = document.getElementById("timeline-bars");
-  const eraLayer = document.getElementById("era-background");
-  const axisContainer = document.getElementById("timeline-axis");
-  if (!barsContainer) return;
-
-  [barsContainer, eraLayer, axisContainer].forEach((el) => (el.innerHTML = ""));
+  const bars = document.getElementById("timeline-bars");
+  const eras = document.getElementById("era-background");
+  const axis = document.getElementById("timeline-axis");
+  if (!bars) return;
+  [bars, eras, axis].forEach((el) => (el.innerHTML = ""));
 
   const visiblePeople = people.filter(
     (p) =>
       state.categoryVisibility[p.category] &&
+      state.tagVisibility[p.tagColor || "none"] &&
       p.name.toLowerCase().includes(state.searchQuery.toLowerCase()),
   );
 
-  const currentYear = new Date().getFullYear();
-  const allYears = people.flatMap((p) => [p.birth, getEffectiveDeath(p)]);
-  const minYear = Math.floor(Math.min(...allYears) / 100) * 100 - 100;
-  const maxYear = Math.ceil(Math.max(...allYears) / 100) * 100 + 100;
-  const pxPerYear = config.pxPerYearBase * state.zoomScale;
-  const totalWidth = (maxYear - minYear) * pxPerYear;
+  const curYear = new Date().getFullYear();
+  const allY = people.flatMap((p) => [p.birth, getDeath(p)]);
+  const minYear = Math.floor(Math.min(...allY, 500) / 100) * 100 - 100;
+  const maxYear = Math.ceil(Math.max(...allY, curYear) / 100) * 100 + 100;
+  const pxPerY = config.pxPerYearBase * state.zoomScale;
+  const totalW = (maxYear - minYear) * pxPerY;
 
-  [barsContainer, eraLayer].forEach(
-    (el) => (el.style.width = `${totalWidth}px`),
-  );
+  [bars, eras].forEach((el) => (el.style.width = `${totalW}px`));
 
-  // 1. 軸と背景
-  renderAxis(axisContainer, minYear, maxYear, pxPerYear);
-  renderEras(eraLayer, minYear, maxYear, pxPerYear);
-  renderTodayLine(eraLayer, minYear, maxYear, pxPerYear, currentYear);
-
-  // 2. 人物
-  const positions = calculatePositions(visiblePeople, minYear, pxPerYear);
-  positions.forEach((pos) => renderPersonBar(barsContainer, pos, pxPerYear));
-}
-
-function renderAxis(container, minYear, maxYear, pxPerYear) {
-  const step = state.zoomScale < 0.5 ? 500 : state.zoomScale < 1.5 ? 100 : 50;
+  // 目盛り
+  const step = state.zoomScale < 0.6 ? 500 : state.zoomScale < 1.5 ? 100 : 50;
   for (let y = minYear; y <= maxYear; y += step) {
-    const label = document.createElement("div");
-    label.className = "year-label";
-    label.style.left = `${(y - minYear) * pxPerYear}px`;
-    label.textContent = formatYear(y);
-    container.appendChild(label);
+    const l = document.createElement("div");
+    l.className = "year-label";
+    l.style.left = `${(y - minYear) * pxPerY}px`;
+    l.textContent = formatYear(y);
+    axis.appendChild(l);
   }
-}
 
-function renderEras(container, minYear, maxYear, pxPerYear) {
-  config.eras.forEach((era) => {
-    if (era.end <= minYear || era.start >= maxYear) return;
-    const start = Math.max(era.start, minYear);
-    const end = Math.min(era.end, maxYear);
+  // 時代背景
+  config.eras.forEach((e) => {
+    if (e.end <= minYear || e.start >= maxYear) return;
     const div = document.createElement("div");
     div.className = "era-region";
-    div.style.left = `${(start - minYear) * pxPerYear}px`;
-    div.style.width = `${(end - start) * pxPerYear}px`;
-    div.style.backgroundColor = era.color;
-    div.innerHTML = `<span>${era.name}</span>`;
-    container.appendChild(div);
+    div.style.left = `${(Math.max(e.start, minYear) - minYear) * pxPerY}px`;
+    div.style.width = `${(Math.min(e.end, maxYear) - Math.max(e.start, minYear)) * pxPerY}px`;
+    div.style.backgroundColor = e.color;
+    div.innerHTML = `<span>${e.name}</span>`;
+    eras.appendChild(div);
   });
-}
 
-function renderTodayLine(container, minYear, maxYear, pxPerYear, currentYear) {
-  if (currentYear < minYear || currentYear > maxYear) return;
-  const x = (currentYear - minYear) * pxPerYear;
-  const line = document.createElement("div");
-  line.className = "today-line";
-  line.style.left = `${x}px`;
-  line.innerHTML = `<div class="today-label">今日 (${currentYear})</div>`;
-  container.appendChild(line);
-}
+  // Today
+  const tx = (curYear - minYear) * pxPerY;
+  const tLine = document.createElement("div");
+  tLine.className = "today-line";
+  tLine.style.left = `${tx}px`;
+  tLine.innerHTML = `<div class="today-label">今日 (${curYear})</div>`;
+  eras.appendChild(tLine);
 
-function calculatePositions(visiblePeople, minYear, pxPerYear) {
-  const positions = [];
+  // 人物バー
+  const pos = [];
   const sorted = [...visiblePeople].sort((a, b) => a.birth - b.birth);
-  sorted.forEach((person) => {
-    const startX = (person.birth - minYear) * pxPerYear;
-    const width = Math.max(
-      config.barMinWidth,
-      (getEffectiveDeath(person) - person.birth) * pxPerYear,
-    );
+  sorted.forEach((p) => {
+    const x = (p.birth - minYear) * pxPerY;
+    const w = Math.max(120, (getDeath(p) - p.birth) * pxPerY);
     let row = 0;
     while (
-      positions.some(
-        (p) =>
-          p.row === row &&
-          !(startX > p.startX + p.width + 40 || startX + width + 40 < p.startX),
+      pos.some(
+        (prev) =>
+          prev.row === row &&
+          !(x > prev.x + prev.w + 30 || x + w + 30 < prev.x),
       )
-    ) {
+    )
       row++;
-    }
-    positions.push({ person, startX, width, row });
+    pos.push({ p, x, w, row });
+
+    const bar = document.createElement("div");
+    bar.className = "person-bar";
+    bar.style.cssText = `left:${x}px; width:${w}px; top:${row * config.rowHeight + 20}px; 
+                         background-color:${config.categoryColors[p.category]}; 
+                         border-color:${p.tagColor || "rgba(255,255,255,0.3)"};`;
+    bar.textContent = `${p.name} (${formatYear(p.birth)}〜)`;
+    bar.onclick = (e) => {
+      e.stopPropagation();
+      enterEditMode(p);
+    };
+    bar.onmouseover = (e) => showTooltip(e, p);
+    bar.onmouseout = () =>
+      (document.getElementById("tooltip").style.display = "none");
+    bars.appendChild(bar);
   });
-  return positions;
 }
 
-function renderPersonBar(container, pos, pxPerYear) {
-  const p = pos.person;
-  const bar = document.createElement("div");
-  bar.className = "person-bar";
-  bar.style.cssText = `left:${pos.startX}px; width:${pos.width}px; top:${pos.row * config.rowHeight + 20}px; background-color:${config.categoryColors[p.category]}`;
-  bar.textContent = `${p.name} (${formatYear(p.birth)} 〜 ${formatYear(p.death, true)})`;
-
-  bar.onclick = (e) => {
-    e.stopPropagation();
-    enterEditMode(p);
-  };
-  bar.onmouseover = (e) => showTooltip(e, p);
-  bar.onmouseout = hideTooltip;
-  container.appendChild(bar);
-}
-
-// --- イベント/UI制御 ---
 function showTooltip(e, p) {
   const tip = document.getElementById("tooltip");
-  tip.innerHTML = `<strong>${p.name}</strong> (${formatYear(p.birth)}〜${formatYear(p.death, true)})<br>${p.memo || ""}`;
+  const tagName = tagNames[p.tagColor] || "タグ名未設定";
+  tip.innerHTML = `<strong>${p.name}</strong> (${formatYear(p.birth)}〜${formatYear(p.death, true)})<br>
+                   <span style="color:${p.tagColor || "#ccc"}">●</span> ${tagName}<br><hr>${p.memo || ""}`;
   tip.style.display = "block";
   tip.style.left = e.clientX + 15 + "px";
   tip.style.top = e.clientY + 15 + "px";
 }
-const hideTooltip = () =>
-  (document.getElementById("tooltip").style.display = "none");
 
-function enterEditMode(person) {
-  state.editIndex = people.indexOf(person);
-  ["name", "birth", "death", "category", "memo"].forEach((key) => {
-    document.getElementById(`person-${key}`).value =
-      person[key] || (key === "death" ? 0 : "");
+// --- UI制御 ---
+function renderTagLegend() {
+  const container = document.getElementById("tag-legend-filter");
+  container.innerHTML = "";
+  config.tagColors.forEach((c) => {
+    const btn = document.createElement("div");
+    btn.className = `tag-filter-btn ${state.tagVisibility[c] ? "" : "inactive"}`;
+    btn.innerHTML = `<span class="dot" style="background-color:${c}"></span><span>${tagNames[c] || "未設定"}</span>`;
+    btn.onclick = () => {
+      state.tagVisibility[c] = !state.tagVisibility[c];
+      renderTagLegend();
+      renderTimeline();
+    };
+    container.appendChild(btn);
   });
-  document.getElementById("form-title").textContent = "📝 人物を編集";
+  const none = document.createElement("div");
+  none.className = `tag-filter-btn ${state.tagVisibility["none"] ? "" : "inactive"}`;
+  none.innerHTML = `<span class="dot" style="background-color:#ccc"></span><span>なし</span>`;
+  none.onclick = () => {
+    state.tagVisibility["none"] = !state.tagVisibility["none"];
+    renderTagLegend();
+    renderTimeline();
+  };
+  container.appendChild(none);
+}
+
+function scrollToToday() {
+  const curYear = new Date().getFullYear();
+  const allY = people.flatMap((p) => [p.birth, getDeath(p)]);
+  const minYear = Math.floor(Math.min(...allY, 500) / 100) * 100 - 100;
+  const pxPerY = config.pxPerYearBase * state.zoomScale;
+  const container = document.getElementById("timeline-container");
+  container.scrollLeft =
+    (curYear - minYear) * pxPerY - container.offsetWidth / 2;
+}
+
+function enterEditMode(p) {
+  state.editIndex = people.indexOf(p);
+  document.getElementById("person-name").value = p.name;
+  document.getElementById("person-birth").value = p.birth;
+  document.getElementById("person-death").value = p.death || "";
+  document.getElementById("person-category").value = p.category;
+  document.getElementById("person-memo").value = p.memo || "";
+  state.selectedTagColor = p.tagColor || "";
+  document
+    .querySelectorAll(".tag-option")
+    .forEach((el) =>
+      el.classList.toggle("selected", el.dataset.color === p.tagColor),
+    );
+  document.getElementById("form-title").textContent = "📝 編集モード";
   document
     .querySelectorAll(".btn-secondary, .btn-danger, #edit-status")
     .forEach((el) => el.classList.remove("hidden"));
@@ -229,6 +261,10 @@ function enterEditMode(person) {
 function exitEditMode() {
   state.editIndex = null;
   document.getElementById("add-person-form").reset();
+  state.selectedTagColor = "";
+  document
+    .querySelectorAll(".tag-option")
+    .forEach((el) => el.classList.remove("selected"));
   document.getElementById("form-title").textContent = "✏️ 人物を追加";
   document
     .querySelectorAll(".btn-secondary, .btn-danger, #edit-status")
@@ -237,32 +273,47 @@ function exitEditMode() {
 
 // --- 初期化 ---
 window.onload = () => {
-  // カテゴリ初期化
-  const catContainer = document.getElementById("category-buttons");
-  const catSelect = document.getElementById("person-category");
-  Object.keys(config.categoryColors).forEach((cat) => {
-    state.categoryVisibility[cat] = true;
-    const btn = document.createElement("button");
-    btn.className = "cat-btn active";
-    btn.style.backgroundColor = config.categoryColors[cat];
-    btn.textContent = cat;
-    btn.onclick = () => {
-      state.categoryVisibility[cat] = !state.categoryVisibility[cat];
-      btn.style.opacity = state.categoryVisibility[cat] ? "1" : "0.3";
+  const catWrap = document.getElementById("category-buttons");
+  const catSel = document.getElementById("person-category");
+  Object.keys(config.categoryColors).forEach((c) => {
+    state.categoryVisibility[c] = true;
+    const b = document.createElement("button");
+    b.className = "btn btn-secondary btn-sm";
+    b.style.borderLeft = `5px solid ${config.categoryColors[c]}`;
+    b.textContent = c;
+    b.onclick = () => {
+      state.categoryVisibility[c] = !state.categoryVisibility[c];
+      b.style.opacity = state.categoryVisibility[c] ? "1" : "0.3";
       renderTimeline();
     };
-    catContainer.appendChild(btn);
-    catSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+    catWrap.appendChild(b);
+    catSel.innerHTML += `<option value="${c}">${c}</option>`;
   });
 
+  const tagWrap = document.getElementById("tag-color-selector");
+  config.tagColors.forEach((c) => {
+    state.tagVisibility[c] = true;
+    const opt = document.createElement("div");
+    opt.className = "tag-option";
+    opt.style.backgroundColor = c;
+    opt.dataset.color = c;
+    opt.onclick = () => {
+      document
+        .querySelectorAll(".tag-option")
+        .forEach((el) => el.classList.remove("selected"));
+      opt.classList.add("selected");
+      state.selectedTagColor = c;
+    };
+    tagWrap.appendChild(opt);
+  });
+
+  renderTagLegend();
   renderTimeline();
+  setTimeout(scrollToToday, 300);
 
-  // スクロール同期
-  const container = document.getElementById("timeline-container");
-  const axis = document.getElementById("timeline-axis");
-  container.onscroll = () => (axis.scrollLeft = container.scrollLeft);
-
-  // 各種イベント
+  // イベント登録
+  document.getElementById("timeline-container").onscroll = (e) =>
+    (document.getElementById("timeline-axis").scrollLeft = e.target.scrollLeft);
   document.getElementById("zoom-slider").oninput = (e) => {
     state.zoomScale = parseFloat(e.target.value);
     document.getElementById("zoom-value").textContent =
@@ -273,6 +324,7 @@ window.onload = () => {
     state.searchQuery = e.target.value;
     renderTimeline();
   };
+  document.getElementById("jump-today").onclick = scrollToToday;
   document.getElementById("cancel-button").onclick = exitEditMode;
   document.getElementById("delete-button").onclick = () => {
     if (confirm("削除しますか？")) {
@@ -282,19 +334,46 @@ window.onload = () => {
       renderTimeline();
     }
   };
+
   document.getElementById("add-person-form").onsubmit = (e) => {
     e.preventDefault();
-    const data = {
+    const d = {
       name: document.getElementById("person-name").value,
       birth: parseInt(document.getElementById("person-birth").value),
       death: parseInt(document.getElementById("person-death").value) || 0,
       category: document.getElementById("person-category").value,
+      tagColor: state.selectedTagColor,
       memo: document.getElementById("person-memo").value,
     };
-    if (state.editIndex !== null) people[state.editIndex] = data;
-    else people.push(data);
+    if (state.editIndex !== null) people[state.editIndex] = d;
+    else people.push(d);
     localStorage.setItem("peopleData", JSON.stringify(people));
     exitEditMode();
     renderTimeline();
   };
+
+  // モーダル
+  const modal = document.getElementById("tag-settings-modal");
+  document.getElementById("open-tag-settings").onclick = () => {
+    const cont = document.getElementById("tag-names-container");
+    cont.innerHTML = "";
+    config.tagColors.forEach((c) => {
+      cont.innerHTML += `<div class="tag-setting-row">
+        <div class="tag-color-sample" style="background-color:${c}"></div>
+        <input type="text" id="tn-${c}" value="${tagNames[c] || ""}" placeholder="意味を入力...">
+      </div>`;
+    });
+    modal.classList.remove("hidden");
+  };
+  document.getElementById("save-tag-settings").onclick = () => {
+    config.tagColors.forEach(
+      (c) => (tagNames[c] = document.getElementById(`tn-${c}`).value),
+    );
+    localStorage.setItem("tagNamesData", JSON.stringify(tagNames));
+    modal.classList.add("hidden");
+    renderTagLegend();
+    renderTimeline();
+  };
+  document.getElementById("close-tag-settings").onclick = () =>
+    modal.classList.add("hidden");
 };
