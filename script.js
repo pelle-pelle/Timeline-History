@@ -369,27 +369,55 @@ window.onload = function () {
   document.getElementById("cancel-button").onclick = exitEditMode;
 
   // バックアップ機能
-  document.getElementById("export-btn").onclick = () => {
-    const blob = new Blob([JSON.stringify({ people, tagNames })], {
-      type: "application/json",
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "history_data.json";
-    a.click();
-  };
-  document.getElementById("import-trigger").onclick = () =>
-    document.getElementById("import-file").click();
-  document.getElementById("import-file").onchange = (e) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const data = JSON.parse(ev.target.result);
-      people = data.people;
-      tagNames = data.tagNames;
-      saveToStorage();
-      location.reload();
+  // --- バックアップ機能（保存ボタンの強化版） ---
+  document.getElementById("export-btn").onclick = async () => {
+    // 保存する中身を作成
+    const dataObject = {
+      people: people,
+      tagNames: tagNames,
     };
-    reader.readAsText(e.target.files[0]);
+    const jsonString = JSON.stringify(dataObject, null, 2);
+
+    // 1. 最新の「保存ダイアログ」が使えるブラウザ（Chrome/Edgeなど）の場合
+    if ("showSaveFilePicker" in window) {
+      try {
+        // 保存ダイアログを表示
+        const handle = await window.showSaveFilePicker({
+          suggestedName: `history_backup_${new Date().toISOString().split("T")[0]}.json`,
+          types: [
+            {
+              description: "JSONファイル",
+              accept: { "application/json": [".json"] },
+            },
+          ],
+        });
+
+        // 選ばれた場所に書き込み
+        const writable = await handle.createWritable();
+        await writable.write(jsonString);
+        await writable.close();
+        alert("保存が完了しました！");
+      } catch (err) {
+        // ユーザーがキャンセルした場合は何もしない
+        console.log("保存がキャンセルされました");
+      }
+    }
+    // 2. ダイアログ機能が使えない古いブラウザやスマホの場合
+    else {
+      const fileName = prompt(
+        "保存するファイル名を入力してください",
+        `history_backup_${new Date().toISOString().split("T")[0]}.json`,
+      );
+
+      if (fileName) {
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName.endsWith(".json") ? fileName : fileName + ".json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    }
   };
 
   // タグ設定モーダルの制御
