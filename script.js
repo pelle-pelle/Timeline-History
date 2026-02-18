@@ -9,6 +9,7 @@ const config = {
     "武将・軍事": "#43A047",
     "改革・維新": "#FB8C00",
     "文化・文学・宗教": "#8E24AA",
+    "経済・産業・技術": "#E53935",
     天皇: "#D4AF37",
     その他: "#757575",
   },
@@ -27,17 +28,47 @@ const config = {
     "#795548",
   ],
   eras: [
-    { name: "飛鳥", start: 592, end: 710, color: "rgba(200,200,200,0.2)" },
-    { name: "奈良", start: 710, end: 794, color: "rgba(150,150,150,0.1)" },
-    { name: "平安", start: 794, end: 1185, color: "rgba(255,182,193,0.1)" },
-    { name: "鎌倉", start: 1185, end: 1333, color: "rgba(173,216,230,0.1)" },
-    { name: "室町", start: 1333, end: 1573, color: "rgba(152,251,152,0.1)" },
-    { name: "江戸", start: 1603, end: 1868, color: "rgba(244,221,129,0.1)" },
+    { name: "飛鳥", start: 592, end: 710, color: "rgba(233, 236, 239, 0.4)" },
+    { name: "奈良", start: 710, end: 794, color: "rgba(216, 191, 216, 0.3)" },
+    { name: "平安", start: 794, end: 1185, color: "rgba(255, 182, 193, 0.25)" },
     {
-      name: "明治以降",
+      name: "鎌倉",
+      start: 1185,
+      end: 1333,
+      color: "rgba(173, 216, 230, 0.25)",
+    },
+    {
+      name: "室町",
+      start: 1333,
+      end: 1573,
+      color: "rgba(152, 251, 152, 0.25)",
+    },
+    {
+      name: "安土桃山",
+      start: 1573,
+      end: 1603,
+      color: "rgba(255, 215, 0, 0.2)",
+    },
+    { name: "江戸", start: 1603, end: 1868, color: "rgba(244, 221, 129, 0.3)" },
+    {
+      name: "明治",
       start: 1868,
+      end: 1912,
+      color: "rgba(135, 206, 235, 0.25)",
+    },
+    { name: "大正", start: 1912, end: 1926, color: "rgba(255, 250, 205, 0.4)" },
+    {
+      name: "昭和",
+      start: 1926,
+      end: 1989,
+      color: "rgba(220, 220, 220, 0.35)",
+    },
+    { name: "平成", start: 1989, end: 2019, color: "rgba(224, 255, 255, 0.3)" },
+    {
+      name: "令和",
+      start: 2019,
       end: 2050,
-      color: "rgba(135,206,235,0.1)",
+      color: "rgba(255, 228, 225, 0.35)",
     },
   ],
 };
@@ -91,47 +122,55 @@ function saveToStorage() {
 }
 
 // ==========================================
-// 4. 年表の描画エンジン
+// ==========================================
+// 4. 年表の描画エンジン (修正版)
 // ==========================================
 function renderTimeline() {
-  const barsContainer = document.getElementById("timeline-bars");
   const axisContainer = document.getElementById("timeline-axis");
+  const barsContainer = document.getElementById("timeline-bars");
   const eraContainer = document.getElementById("era-background");
 
-  if (!barsContainer) return;
+  if (!axisContainer || !barsContainer || !eraContainer) return;
 
-  // 画面を一度空にする
-  barsContainer.innerHTML = "";
   axisContainer.innerHTML = "";
+  barsContainer.innerHTML = "";
   eraContainer.innerHTML = "";
 
-  // 表示すべき人だけを絞り込む（検索・カテゴリ・タグ）
-  const visiblePeople = people.filter((p) => {
-    const matchSearch = p.name
-      .toLowerCase()
-      .includes(state.searchQuery.toLowerCase());
-    const matchCat = state.categoryVisibility[p.category];
-    const matchTag = p.tagColor
-      ? state.tagVisibility[p.tagColor]
-      : state.tagVisibility["none"];
-    return matchSearch && matchCat && matchTag;
-  });
-
-  // 年表の幅を計算
   const curYear = new Date().getFullYear();
-  const allYears = people.flatMap((p) => [p.birth, p.death || curYear]);
-  const minYear = Math.floor(Math.min(...allYears, 500) / 100) * 100 - 100;
-  const maxYear = Math.ceil(Math.max(...allYears, curYear) / 100) * 100 + 100;
+
+  // 1. 全データの期間を抽出（時代設定の端っこも計算に入れる）
+  const personYears = people.flatMap((p) => [p.birth, p.death || curYear]);
+  const eraYears = config.eras.flatMap((e) => [e.start, e.end]);
+  const allYears = [...personYears, ...eraYears];
+
+  // 2. 年表の端っこを計算（データがない場合は500年〜現在）
+  const minVal = allYears.length > 0 ? Math.min(...allYears) : 500;
+  const maxVal = allYears.length > 0 ? Math.max(...allYears) : curYear;
+
+  // 表示範囲を決定（過去に50年、未来に30年のバッファ）
+  const minYear = Math.floor(minVal / 50) * 50 - 50;
+  const maxYear = Math.ceil(maxVal / 10) * 10 + 30;
+
   const pxPerYear = config.pxPerYearBase * state.zoomScale;
   const totalWidth = (maxYear - minYear) * pxPerYear;
 
-  barsContainer.style.width = `${totalWidth}px`;
-  eraContainer.style.width = `${totalWidth}px`;
+  // ★重要：コンテナの幅を固定し、はみ出しをカットする
+  [axisContainer, barsContainer, eraContainer].forEach((el) => {
+    el.style.width = `${totalWidth}px`;
+    el.style.minWidth = `${totalWidth}px`;
+    el.style.overflow = "hidden"; // これが「無限スクロール」を防ぐ鍵
+  });
 
-  // 時代背景を描く
+  // 3. 時代背景を描く
   config.eras.forEach((era) => {
-    const x = (era.start - minYear) * pxPerYear;
-    const w = (era.end - era.start) * pxPerYear;
+    // 年表の範囲外の時代は描画しない（または範囲内に収める）
+    const start = Math.max(minYear, era.start);
+    const end = Math.min(maxYear, era.end);
+    if (start >= end) return;
+
+    const x = (start - minYear) * pxPerYear;
+    const w = (end - start) * pxPerYear;
+
     const div = document.createElement("div");
     div.className = "era-region";
     div.style.left = `${x}px`;
@@ -141,7 +180,7 @@ function renderTimeline() {
     eraContainer.appendChild(div);
   });
 
-  // 目盛りを描く
+  // 4. 目盛り（年）を描く
   for (let y = minYear; y <= maxYear; y += 100) {
     const label = document.createElement("div");
     label.className = "year-label";
@@ -150,22 +189,35 @@ function renderTimeline() {
     axisContainer.appendChild(label);
   }
 
-  // 今日の赤いラインを描く
+  // 5. 今日の赤いライン
   const todayX = (curYear - minYear) * pxPerYear;
   const todayLine = document.createElement("div");
-  todayLine.style.cssText = `position:absolute; left:${todayX}px; top:0; bottom:0; width:2px; background:red; z-index:5;`;
+  todayLine.style.cssText = `position:absolute; left:${todayX}px; top:0; bottom:0; width:2px; background:red; z-index:5; opacity:0.6;`;
   eraContainer.appendChild(todayLine);
 
-  // 人物のバーを描く（重ならないように計算）
+  // 6. 人物バーを描く
+  // 人物バーを描く前の filter 部分を修正
+  const visiblePeople = people.filter((p) => {
+    const matchSearch = p.name
+      .toLowerCase()
+      .includes(state.searchQuery.toLowerCase());
+    // カテゴリが未定義の場合は true にする（念のため）
+    const matchCat = state.categoryVisibility[p.category] !== false;
+    const matchTag = p.tagColor
+      ? state.tagVisibility[p.tagColor]
+      : state.tagVisibility["none"];
+    return matchSearch && matchCat && matchTag;
+  });
+
   const rows = [];
   visiblePeople
     .sort((a, b) => a.birth - b.birth)
     .forEach((p) => {
       const startX = (p.birth - minYear) * pxPerYear;
       const endYear = p.death || curYear;
+      // バーの物理的な幅
       const width = Math.max(100, (endYear - p.birth) * pxPerYear);
 
-      // 空いている行を探す
       let rowIndex = 0;
       while (rows[rowIndex] > startX) {
         rowIndex++;
@@ -179,17 +231,19 @@ function renderTimeline() {
       bar.style.top = `${rowIndex * config.rowHeight + 20}px`;
       bar.style.backgroundColor = config.categoryColors[p.category];
       bar.style.borderColor = p.tagColor || "rgba(255,255,255,0.4)";
-
       bar.textContent = `${p.name} (${p.birth}〜)`;
 
-      // クリックしたら編集モード（IDを渡す）
       bar.onclick = () => enterEditMode(p);
       bar.onmouseover = (e) => showTooltip(e, p);
       bar.onmouseout = () =>
         (document.getElementById("tooltip").style.display = "none");
-
       barsContainer.appendChild(bar);
     });
+
+  // 使用された行数 (rows.length) に基づいて、コンテナの高さを自動調整する
+  const finalHeight = rows.length * config.rowHeight + 60;
+  barsContainer.style.height = `${finalHeight}px`;
+  eraContainer.style.height = `${finalHeight}px`; // 背景も合わせる
 }
 
 // ==========================================
@@ -286,11 +340,15 @@ document.getElementById("delete-button").onclick = function () {
 // 6. その他の便利機能
 // ==========================================
 
-// 現代の位置にスクロールする
 function scrollToToday() {
   const curYear = new Date().getFullYear();
-  const allYears = people.flatMap((p) => [p.birth, p.death || curYear]);
-  const minYear = Math.floor(Math.min(...allYears, 500) / 100) * 100 - 100;
+  // renderTimelineと同じ計算で minYear を出す
+  const personYears = people.flatMap((p) => [p.birth, p.death || curYear]);
+  const eraYears = config.eras.flatMap((e) => [e.start, e.end]);
+  const allYears = [...personYears, ...eraYears];
+  const minVal = allYears.length > 0 ? Math.min(...allYears) : 500;
+  const minYear = Math.floor(minVal / 50) * 50 - 50;
+
   const pxPerYear = config.pxPerYearBase * state.zoomScale;
   const container = document.getElementById("timeline-container");
 
@@ -355,6 +413,15 @@ window.onload = function () {
   setTimeout(scrollToToday, 500);
 
   // イベント登録
+  // 下の「人物窓」をスクロールしたら、上の「年窓」の表示位置を合わせる
+  const timelineWindow = document.getElementById("timeline-container");
+  const axisWindow = document.getElementById("axis-window");
+
+  timelineWindow.onscroll = function (e) {
+    // 下のスクロール量（scrollLeft）を上の窓にもコピーする
+    axisWindow.scrollLeft = e.target.scrollLeft;
+  };
+
   document.getElementById("zoom-slider").oninput = (e) => {
     state.zoomScale = parseFloat(e.target.value);
     document.getElementById("zoom-value").textContent =

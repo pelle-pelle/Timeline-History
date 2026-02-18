@@ -33,20 +33,32 @@ body {
 }
 
 /* 年表エリア */
-#timeline-axis {
-  height: 35px;
-  background: #fff;
+/* style.css */
+
+/* 1. 年の「窓」：画面幅に固定し、はみ出た分を隠す */
+#axis-window {
+  width: 100%;
+  overflow: hidden; /* はみ出た「年」を隠す */
   border-bottom: 2px solid #3498db;
-  position: relative;
-  overflow: hidden;
+  position: sticky; /* 画面上部に固定したい場合はこれ */
+  top: 0;
+  z-index: 100;
 }
+
+/* 2. 年の「中身」：JSで横幅を長く伸ばす土台 */
+#timeline-axis {
+  position: relative;
+  height: 35px;
+}
+
+/* 3. 人物の「窓」：ここは今まで通りスクロール可能に */
 #timeline-container {
+  width: 100%;
+  overflow-x: auto; /* ここでスクロールさせる */
   position: relative;
   height: 450px;
-  overflow: auto;
-  background: white;
-  border: 1px solid #ddd;
 }
+
 #era-background,
 #timeline-bars {
   position: absolute;
